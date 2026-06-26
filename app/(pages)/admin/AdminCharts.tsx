@@ -141,7 +141,7 @@ export default function AdminCharts({ monthlyData, occupancyData }: AdminChartsP
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value: number, name: string) => [value, name]}
+                formatter={(value: any, name: any) => [value, name]}
                 contentStyle={{ borderRadius: 12, fontSize: 12 }}
               />
             </PieChart>
