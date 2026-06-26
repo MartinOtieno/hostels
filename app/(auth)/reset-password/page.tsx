@@ -43,6 +43,7 @@ function ResetForm() {
     .catch(() => setTokenOk(false))
     .finally(() => setChecking(false));
   }, [token]);
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const strength = getStrength(password);
@@ -51,7 +52,7 @@ function ResetForm() {
 
     setLoading(true);
     try {
-      const res  = await fetch("/api/auth/reset-password", {
+      const res  = await fetch("/api/reset-password", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ token, password }),

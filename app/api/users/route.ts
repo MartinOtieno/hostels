@@ -3,6 +3,10 @@ import { connectDB } from "@/lib/db";
 import User from "../../../models/User";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
+import crypto from "crypto";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(req: NextRequest) {
   try {
@@ -68,7 +72,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, email, phone, role, status, photo } = body;
 
-    // Validate required fields
+    // ✅ Validate
     if (!name || !email) {
       return NextResponse.json(
         { success: false, message: "Name and email are required" },
@@ -76,15 +80,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check for duplicate email
+    // ✅ Check duplicate
     const existing = await User.findOne({ email });
     if (existing) {
       return NextResponse.json(
-        { success: false, message: "A user with this email already exists" },
+        { success: false, message: "User already exists" },
         { status: 409 }
       );
     }
 
+    // 🔐 Generate token
+    const rawToken = crypto.randomBytes(32).toString("hex");
+
+    // Hash token before saving
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    const tokenExpiry = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
+
+    // ✅ Create user WITHOUT password
     const user = await User.create({
       name,
       email,
@@ -92,6 +108,29 @@ export async function POST(req: NextRequest) {
       role: role || "guest",
       status: status || "active",
       photo,
+      password: null,
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: tokenExpiry,
+    });
+
+    // 🔗 Setup link
+    const setupLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${rawToken}&email=${email}`;
+
+    // 📧 Send email using Resend
+    await resend.emails.send({
+      from: "onboarding@resend.dev", // ⚠️ Replace with your verified domain later
+      to: email,
+      subject: "Set Your Password",
+      html: `
+        <h2>Hello ${name},</h2>
+        <p>Your account has been created by an admin.</p>
+        <p>Click the button below to set your password:</p>
+        <a href="${setupLink}" 
+           style="display:inline-block;padding:10px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:5px;">
+           Set Password
+        </a>
+        <p>This link expires in 1 hour.</p>
+      `,
     });
 
     // Return user without password
@@ -104,7 +143,10 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("POST /api/users error:", error);
     return NextResponse.json(
-      { success: false, message: error.message || "Failed to create user" },
+      {
+        success: false,
+        message: error.message || "Failed to create user",
+      },
       { status: 500 }
     );
   }

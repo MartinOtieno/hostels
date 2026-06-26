@@ -51,8 +51,8 @@ const userSchema = new mongoose.Schema(
       default: "prefer_not_to_say",
     },
 
-  resetPasswordToken:   { type: String  },
-  resetPasswordExpires: { type: Date    },
+    resetPasswordToken:   { type: String  },
+    resetPasswordExpires: { type: Date    },
   },
   { timestamps: true }
 );
