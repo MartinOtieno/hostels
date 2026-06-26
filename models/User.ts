@@ -18,9 +18,7 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      minlength: 8,
-      select: false,
-      default: null,
+      required: true,
     },
     role: {
       type: String,
@@ -53,8 +51,8 @@ const userSchema = new mongoose.Schema(
       default: "prefer_not_to_say",
     },
 
-    resetPasswordToken:   { type: String  },
-    resetPasswordExpires: { type: Date    },
+  resetPasswordToken:   { type: String  },
+  resetPasswordExpires: { type: Date    },
   },
   { timestamps: true }
 );
