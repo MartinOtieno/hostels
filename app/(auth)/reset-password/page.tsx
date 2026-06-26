@@ -32,13 +32,16 @@ function ResetForm() {
   const [done,      setDone]      = useState(false);
 
   // Verify token on mount
-  useEffect(() => {
-    if (!token) { setChecking(false); return; }
-    fetch(`/api/auth/reset-password/verify?token=${token}`)
-      .then(r => r.json())
-      .then(d => setTokenOk(d.success))
-      .catch(() => setTokenOk(false))
-      .finally(() => setChecking(false));
+ useEffect(() => {
+  if (!token) {
+    setChecking(false);
+    return;
+  }
+  fetch(`/api/reset-password?token=${encodeURIComponent(token)}`)
+    .then(r => r.json())
+    .then(d => setTokenOk(d.success))
+    .catch(() => setTokenOk(false))
+    .finally(() => setChecking(false));
   }, [token]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -49,7 +52,7 @@ function ResetForm() {
 
     setLoading(true);
     try {
-      const res  = await fetch("/api/auth/reset-password", {
+      const res  = await fetch("/api/reset-password", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ token, password }),
