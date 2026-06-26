@@ -50,6 +50,9 @@ const userSchema = new mongoose.Schema(
       enum: ["male", "female", "other", "prefer_not_to_say"],
       default: "prefer_not_to_say",
     },
+
+    resetPasswordToken:   { type: String  },
+    resetPasswordExpires: { type: Date    },
   },
   { timestamps: true }
 );

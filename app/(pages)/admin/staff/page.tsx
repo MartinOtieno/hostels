@@ -112,6 +112,7 @@ function Avatar({ name, photo, size = 36 }: { name: string; photo?: string; size
         height={size}
         className="rounded-full object-cover flex-shrink-0"
         style={{ width: size, height: size }}
+        sizes="40px"
       />
     );
   }

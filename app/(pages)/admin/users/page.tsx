@@ -253,7 +253,7 @@ export default function AdminUsersPage() {
                   className="relative w-20 h-20 rounded-full cursor-pointer group overflow-hidden border-2 border-dashed border-gray-200 hover:border-indigo-400 transition"
                 >
                   {photoPreview ? (
-                    <Image src={photoPreview} alt="Preview" fill className="object-cover" />
+                    <Image src={photoPreview} alt="Preview" fill sizes="80px" className="object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gray-50">
                       <svg className="w-7 h-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -436,7 +436,7 @@ export default function AdminUsersPage() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
-                            <Image src={imageSrc} alt={user.name} fill className="object-cover" />
+                            <Image src={imageSrc} alt={user.name} fill sizes="40px" className="object-cover" />
                           </div>
                           <div>
                             <p className="font-medium text-gray-800 leading-tight">{user.name}</p>

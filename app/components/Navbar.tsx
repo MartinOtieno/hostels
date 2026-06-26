@@ -119,7 +119,7 @@ export default function Navbar() {
             ) : (
               <>
                 <Link href="/login" className="block text-gray-600 hover:text-blue-600 py-2 font-medium">Sign In</Link>
-                <Link href="/register" className="block py-2 px-4 bg-blue-600 text-white rounded-lg font-medium text-center">Get Started</Link>
+                <Link href="/register" className="block py-2 px-4 bg-blue-600 text-white rounded-lg font-medium text-center">My Account</Link>
               </>
             )}
           </div>
