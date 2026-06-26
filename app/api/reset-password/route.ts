@@ -1,4 +1,4 @@
-// app/api/auth/reset-password/route.ts
+// app/api/reset-password/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
