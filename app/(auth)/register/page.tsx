@@ -426,7 +426,7 @@ export default function RegisterPage() {
                     onClick={() => setShowPw(v => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition"
                   >
-                    {showPw ? <EyeOff /> : <EyeOpen />}
+                    {showPw ? <EyeOpen /> : <EyeOff />}
                   </button>
                 </div>
 
@@ -479,7 +479,7 @@ export default function RegisterPage() {
                     onClick={() => setShowConfirm(v => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition"
                   >
-                    {showConfirm ? <EyeOff /> : <EyeOpen />}
+                    {showPw ? <EyeOpen /> : <EyeOff />}
                   </button>
                 </div>
                 {form.confirmPassword && form.password !== form.confirmPassword && (
