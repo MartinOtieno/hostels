@@ -1,14 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
+
+type StaffSubRole =
+  | "property_manager"
+  | "receptionist"
+  | "caretaker"
+  | "accountant"
+  | "security"
+  | "maintenance";
+
+type UserRole = "admin" | "guest" | "tenant" | StaffSubRole;
 
 interface User {
   _id: string;
   name: string;
   email: string;
   phone?: string;
-  role?: "admin" | "staff" | "guest";
+  role?: UserRole;
   status?: "active" | "suspended";
   photo?: string;
   createdAt?: string;
@@ -16,11 +26,50 @@ interface User {
 
 type DrawerMode = "edit" | "add" | null;
 
-const ROLE_COLORS: Record<string, string> = {
-  admin: "bg-violet-100 text-violet-700",
-  staff: "bg-blue-100 text-blue-700",
-  guest: "bg-slate-100 text-slate-600",
+// All roles that count as "staff"
+const STAFF_SUB_ROLES: StaffSubRole[] = [
+  "property_manager",
+  "receptionist",
+  "caretaker",
+  "accountant",
+  "security",
+  "maintenance",
+];
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  admin:            "Admin",
+  guest:            "Guest",
+  tenant:           "Tenant",
+  property_manager: "Property Manager",
+  receptionist:     "Receptionist",
+  caretaker:        "Caretaker",
+  accountant:       "Accountant",
+  security:         "Security",
+  maintenance:      "Maintenance",
 };
+
+const ROLE_COLORS: Record<UserRole, string> = {
+  admin:            "bg-violet-100 text-violet-700",
+  guest:            "bg-slate-100 text-slate-600",
+  tenant:           "bg-blue-100 text-blue-700",
+  property_manager: "bg-emerald-100 text-emerald-700",
+  receptionist:     "bg-indigo-100 text-indigo-700",
+  caretaker:        "bg-amber-100 text-amber-700",
+  accountant:       "bg-rose-100 text-rose-700",
+  security:         "bg-orange-100 text-orange-700",
+  maintenance:      "bg-slate-100 text-slate-600",
+};
+
+// Filter tabs shown in the UI
+type FilterTab = "all" | "admin" | "staff" | "tenant" | "guest";
+
+const FILTER_TABS: { key: FilterTab; label: string }[] = [
+  { key: "all",    label: "All"    },
+  { key: "admin",  label: "Admin"  },
+  { key: "staff",  label: "Staff"  },
+  { key: "tenant", label: "Tenant" },
+  { key: "guest",  label: "Guest"  },
+];
 
 const DEFAULT_FORM: Omit<User, "_id" | "createdAt"> = {
   name: "",
@@ -32,53 +81,64 @@ const DEFAULT_FORM: Omit<User, "_id" | "createdAt"> = {
 };
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
-  const [formData, setFormData] = useState<Omit<User, "_id" | "createdAt">>(DEFAULT_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [users, setUsers]               = useState<User[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [search, setSearch]             = useState("");
+  const [activeTab, setActiveTab]       = useState<FilterTab>("all");
+  const [drawerMode, setDrawerMode]     = useState<DrawerMode>(null);
+  const [formData, setFormData]         = useState<Omit<User, "_id" | "createdAt">>(DEFAULT_FORM);
+  const [editingId, setEditingId]       = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [saving, setSaving]             = useState(false);
+  const [toast, setToast]               = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [total, setTotal]               = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { fetchUsers(); }, []);
-  useEffect(() => { filterUsers(); }, [search, roleFilter, users]);
 
   function showToast(msg: string, type: "success" | "error" = "success") {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   }
 
-  async function fetchUsers() {
+  // ── Fetch: build query params based on active tab + search ──────────────
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/users");
+      const params = new URLSearchParams();
+      params.set("limit", "100");
+
+      if (activeTab === "staff") {
+        // Use ?staff=true to get all staff sub-roles in one query
+        params.set("staff", "true");
+      } else if (activeTab !== "all") {
+        params.set("role", activeTab);
+      }
+
+      if (search.trim()) params.set("search", search.trim());
+
+      const res  = await fetch(`/api/users?${params.toString()}`);
       const data = await res.json();
-      setUsers(data?.data || []);
+
+      if (data.success) {
+        setUsers(data.data);
+        setTotal(data.total ?? data.data.length);
+      } else {
+        showToast("Failed to load users", "error");
+      }
     } catch {
       showToast("Failed to load users", "error");
     } finally {
       setLoading(false);
     }
-  }
+  }, [activeTab, search]);
 
-  function filterUsers() {
-    let temp = [...users];
-    if (search) {
-      temp = temp.filter(
-        (u) =>
-          u.name?.toLowerCase().includes(search.toLowerCase()) ||
-          u.email.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-    if (roleFilter !== "all") temp = temp.filter((u) => u.role === roleFilter);
-    setFilteredUsers(temp);
-  }
+  // Debounce search; refetch on tab or search change
+  useEffect(() => {
+    const delay = setTimeout(fetchUsers, 300);
+    return () => clearTimeout(delay);
+  }, [fetchUsers]);
 
+  // ── Drawer helpers ───────────────────────────────────────────────────────
   function openAdd() {
     setFormData(DEFAULT_FORM);
     setPhotoPreview(null);
@@ -88,12 +148,12 @@ export default function AdminUsersPage() {
 
   function openEdit(user: User) {
     setFormData({
-      name: user.name,
-      email: user.email,
-      phone: user.phone || "",
-      role: user.role || "guest",
+      name:   user.name,
+      email:  user.email,
+      phone:  user.phone  || "",
+      role:   user.role   || "guest",
       status: user.status || "active",
-      photo: user.photo || "",
+      photo:  user.photo  || "",
     });
     setPhotoPreview(user.photo || null);
     setEditingId(user._id);
@@ -127,16 +187,16 @@ export default function AdminUsersPage() {
     try {
       if (drawerMode === "add") {
         await fetch("/api/users", {
-          method: "POST",
+          method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body:    JSON.stringify(formData),
         });
         showToast("User added successfully");
       } else if (drawerMode === "edit" && editingId) {
         await fetch(`/api/users/${editingId}`, {
-          method: "PUT",
+          method:  "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body:    JSON.stringify(formData),
         });
         showToast("User updated successfully");
       }
@@ -165,9 +225,9 @@ export default function AdminUsersPage() {
     const newStatus = user.status === "active" ? "suspended" : "active";
     try {
       await fetch(`/api/users/${user._id}`, {
-        method: "PATCH",
+        method:  "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body:    JSON.stringify({ status: newStatus }),
       });
       showToast(`Account ${newStatus === "active" ? "activated" : "suspended"}`);
       fetchUsers();
@@ -178,17 +238,17 @@ export default function AdminUsersPage() {
 
   const drawerOpen = drawerMode !== null;
 
+  // All roles available in the add/edit form
+  const ALL_ROLES: UserRole[] = ["admin", "tenant", "guest", ...STAFF_SUB_ROLES];
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
+
       {/* ── Toast ── */}
       {toast && (
-        <div
-          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-all ${
-            toast.type === "success"
-              ? "bg-emerald-600 text-white"
-              : "bg-red-600 text-white"
-          }`}
-        >
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-all ${
+          toast.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
+        }`}>
           {toast.msg}
         </div>
       )}
@@ -207,16 +267,10 @@ export default function AdminUsersPage() {
               <p className="text-sm text-gray-500 mt-1">This action cannot be undone.</p>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="flex-1 border border-gray-200 rounded-lg py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
-              >
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
                 Cancel
               </button>
-              <button
-                onClick={() => deleteUser(confirmDelete)}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 text-sm font-medium transition"
-              >
+              <button onClick={() => deleteUser(confirmDelete)} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 text-sm font-medium transition">
                 Delete
               </button>
             </div>
@@ -229,29 +283,21 @@ export default function AdminUsersPage() {
         <div className="fixed inset-0 z-40 flex">
           <div className="flex-1 bg-black/20 backdrop-blur-sm" onClick={closeDrawer} />
           <div className="w-full max-w-md bg-white shadow-2xl flex flex-col animate-slide-in">
-            {/* Drawer header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
               <h2 className="text-base font-semibold text-gray-900">
                 {drawerMode === "add" ? "Add new user" : "Edit user"}
               </h2>
-              <button
-                onClick={closeDrawer}
-                className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition"
-              >
+              <button onClick={closeDrawer} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition">
                 <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            {/* Drawer body */}
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
               {/* Photo upload */}
               <div className="flex flex-col items-center gap-3">
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="relative w-20 h-20 rounded-full cursor-pointer group overflow-hidden border-2 border-dashed border-gray-200 hover:border-indigo-400 transition"
-                >
+                <div onClick={() => fileInputRef.current?.click()} className="relative w-20 h-20 rounded-full cursor-pointer group overflow-hidden border-2 border-dashed border-gray-200 hover:border-indigo-400 transition">
                   {photoPreview ? (
                     <Image src={photoPreview} alt="Preview" fill sizes="80px" className="object-cover" />
                   ) : (
@@ -272,11 +318,11 @@ export default function AdminUsersPage() {
                 <p className="text-xs text-gray-400">Click to upload photo</p>
               </div>
 
-              {/* Fields */}
+              {/* Text fields */}
               {[
-                { label: "Full name", key: "name", type: "text", placeholder: "Jane Doe" },
-                { label: "Email address", key: "email", type: "email", placeholder: "jane@example.com" },
-                { label: "Phone number", key: "phone", type: "tel", placeholder: "+254 700 000 000" },
+                { label: "Full name",     key: "name",  type: "text",  placeholder: "Jane Doe"           },
+                { label: "Email address", key: "email", type: "email", placeholder: "jane@example.com"   },
+                { label: "Phone number",  key: "phone", type: "tel",   placeholder: "+254 700 000 000"   },
               ].map(({ label, key, type, placeholder }) => (
                 <div key={key}>
                   <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
@@ -290,24 +336,25 @@ export default function AdminUsersPage() {
                 </div>
               ))}
 
-              {/* Role */}
+              {/* Role — dropdown covers all roles including staff sub-roles */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-2">Role</label>
-                <div className="flex gap-2">
-                  {(["guest", "staff", "admin"] as const).map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => setFormData((f) => ({ ...f, role: r }))}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition ${
-                        formData.role === r
-                          ? "bg-indigo-600 border-indigo-600 text-white"
-                          : "border-gray-200 text-gray-600 hover:border-indigo-300"
-                      }`}
-                    >
-                      {r.charAt(0).toUpperCase() + r.slice(1)}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Role</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData((f) => ({ ...f, role: e.target.value as UserRole }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition bg-white"
+                >
+                  <optgroup label="General">
+                    {(["admin", "tenant", "guest"] as UserRole[]).map((r) => (
+                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Staff">
+                    {STAFF_SUB_ROLES.map((r) => (
+                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                    ))}
+                  </optgroup>
+                </select>
               </div>
 
               {/* Status */}
@@ -333,19 +380,11 @@ export default function AdminUsersPage() {
               </div>
             </div>
 
-            {/* Drawer footer */}
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-              <button
-                onClick={closeDrawer}
-                className="flex-1 border border-gray-200 rounded-lg py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
-              >
+              <button onClick={closeDrawer} className="flex-1 border border-gray-200 rounded-lg py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
                 Cancel
               </button>
-              <button
-                onClick={saveUser}
-                disabled={saving}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-lg py-2.5 text-sm font-medium transition"
-              >
+              <button onClick={saveUser} disabled={saving} className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-lg py-2.5 text-sm font-medium transition">
                 {saving ? "Saving…" : drawerMode === "add" ? "Add user" : "Save changes"}
               </button>
             </div>
@@ -355,11 +394,10 @@ export default function AdminUsersPage() {
 
       {/* ── Page ── */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-gray-900">Users</h1>
-            <p className="text-sm text-gray-400 mt-0.5">{users.length} total accounts</p>
+            <p className="text-sm text-gray-400 mt-0.5">{total} total accounts</p>
           </div>
           <button
             onClick={openAdd}
@@ -383,32 +421,59 @@ export default function AdminUsersPage() {
               placeholder="Search by name or email…"
               className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition bg-white"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setActiveTab("all"); }}
             />
           </div>
 
-          <div className="flex gap-2">
-            {["all", "admin", "staff", "guest"].map((r) => (
+          {/* Tab buttons — Staff expands to show sub-role pills below */}
+          <div className="flex gap-2 flex-wrap">
+            {FILTER_TABS.map(({ key, label }) => (
               <button
-                key={r}
-                onClick={() => setRoleFilter(r)}
+                key={key}
+                onClick={() => setActiveTab(key)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium border transition ${
-                  roleFilter === r
+                  activeTab === key
                     ? "bg-indigo-600 border-indigo-600 text-white"
                     : "border-gray-200 bg-white text-gray-600 hover:border-indigo-300"
                 }`}
               >
-                {r.charAt(0).toUpperCase() + r.slice(1)}
+                {label}
               </button>
             ))}
           </div>
         </div>
 
+        {/* Staff sub-role pills — only visible when Staff tab is active */}
+        {activeTab === "staff" && (
+          <div className="flex flex-wrap gap-2">
+            {STAFF_SUB_ROLES.map((r) => (
+              <span
+                key={r}
+                className={`px-3 py-1 rounded-full text-xs font-medium border ${ROLE_COLORS[r]} border-transparent`}
+              >
+                {ROLE_LABELS[r]}
+              </span>
+            ))}
+            <span className="text-xs text-gray-400 self-center ml-1">— all included</span>
+          </div>
+        )}
+
         {/* Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {loading ? (
-            <div className="p-12 text-center text-gray-400 text-sm">Loading users…</div>
-          ) : filteredUsers.length === 0 ? (
+            <div className="divide-y divide-gray-50">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-5 py-4 animate-pulse">
+                  <div className="w-9 h-9 rounded-full bg-gray-100 shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 bg-gray-100 rounded w-1/4" />
+                    <div className="h-2.5 bg-gray-100 rounded w-1/3" />
+                  </div>
+                  <div className="h-6 w-20 bg-gray-100 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : users.length === 0 ? (
             <div className="p-12 text-center">
               <svg className="w-10 h-10 text-gray-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -428,11 +493,10 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredUsers.map((user) => {
+                {users.map((user) => {
                   const imageSrc = user.photo?.trim() ? user.photo : "/avatar.png";
                   return (
-                    <tr key={user._id} className="hover:bg-gray-50/70 transition-colors group">
-                      {/* User */}
+                    <tr key={user._id} className="hover:bg-gray-50/70 transition-colors">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
@@ -444,57 +508,34 @@ export default function AdminUsersPage() {
                           </div>
                         </div>
                       </td>
-
-                      {/* Phone */}
                       <td className="px-5 py-3.5 text-gray-500 hidden md:table-cell">
                         {user.phone || <span className="text-gray-300">—</span>}
                       </td>
-
-                      {/* Role */}
                       <td className="px-5 py-3.5">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ROLE_COLORS[user.role || "guest"]}`}>
-                          {user.role || "guest"}
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ROLE_COLORS[user.role ?? "guest"]}`}>
+                          {ROLE_LABELS[user.role ?? "guest"]}
                         </span>
                       </td>
-
-                      {/* Status */}
                       <td className="px-5 py-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                            user.status === "suspended"
-                              ? "bg-red-50 text-red-600"
-                              : "bg-emerald-50 text-emerald-600"
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              user.status === "suspended" ? "bg-red-400" : "bg-emerald-400"
-                            }`}
-                          />
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                          user.status === "suspended" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${user.status === "suspended" ? "bg-red-400" : "bg-emerald-400"}`} />
                           {user.status === "suspended" ? "Suspended" : "Active"}
                         </span>
                       </td>
-
-                      {/* Joined */}
                       <td className="px-5 py-3.5 text-gray-400 text-xs hidden lg:table-cell">
-                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                        {user.createdAt
+                          ? new Date(user.createdAt).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" })
+                          : "—"}
                       </td>
-
-                      {/* Actions */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-1">
-                          {/* Edit */}
-                          <button
-                            onClick={() => openEdit(user)}
-                            title="Edit user"
-                            className="w-8 h-8 rounded-lg hover:bg-indigo-50 flex items-center justify-center text-gray-400 hover:text-indigo-600 transition"
-                          >
+                          <button onClick={() => openEdit(user)} title="Edit user" className="w-8 h-8 rounded-lg hover:bg-indigo-50 flex items-center justify-center text-gray-400 hover:text-indigo-600 transition">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </button>
-
-                          {/* Toggle status */}
                           <button
                             onClick={() => toggleStatus(user)}
                             title={user.status === "active" ? "Suspend account" : "Activate account"}
@@ -514,13 +555,7 @@ export default function AdminUsersPage() {
                               </svg>
                             )}
                           </button>
-
-                          {/* Delete */}
-                          <button
-                            onClick={() => setConfirmDelete(user._id)}
-                            title="Delete user"
-                            className="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-600 transition"
-                          >
+                          <button onClick={() => setConfirmDelete(user._id)} title="Delete user" className="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-600 transition">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
@@ -536,18 +571,13 @@ export default function AdminUsersPage() {
         </div>
 
         <p className="text-xs text-gray-400 text-right">
-          Showing {filteredUsers.length} of {users.length} users
+          Showing {users.length} of {total} users
         </p>
       </div>
 
       <style>{`
-        @keyframes slide-in {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-        .animate-slide-in {
-          animation: slide-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-        }
+        @keyframes slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .animate-slide-in { animation: slide-in 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
       `}</style>
     </div>
   );

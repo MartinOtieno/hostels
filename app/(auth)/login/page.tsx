@@ -6,6 +6,21 @@ import { signIn } from "next-auth/react";
 import toast, { Toaster } from "react-hot-toast";
 import { useState } from "react";
 
+const STAFF_POSITIONS = [
+  "property_manager",
+  "receptionist",
+  "caretaker",
+  "accountant",
+  "security",
+  "maintenance",
+];
+
+function getRoleRedirect(role: string): string {
+  if (role === "admin") return "/admin";
+  if (STAFF_POSITIONS.includes(role)) return "/staff";
+  return "/";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -14,7 +29,7 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    const form = e.currentTarget;
+    const form     = e.currentTarget;
     const email    = (form.elements.namedItem("email")    as HTMLInputElement).value.trim();
     const password = (form.elements.namedItem("password") as HTMLInputElement).value.trim();
 
@@ -50,14 +65,9 @@ export default function LoginPage() {
       toast.success("Welcome back! Loading…");
 
       const session = await fetch("/api/auth/session").then(r => r.json());
-      const role    = session?.user?.role;
+      const role    = session?.user?.role ?? "";
 
-      const roleRedirects: Record<string, string> = {
-        admin: "/admin",
-        staff: "/staff",
-        guest: "/",
-      };
-      setTimeout(() => router.push(roleRedirects[role] ?? "/"), 1200);
+      setTimeout(() => router.push(getRoleRedirect(role)), 1200);
 
     } catch (err) {
       console.error("Login error:", err);

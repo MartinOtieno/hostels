@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
+import { createNotification } from "@/lib/createNotification";
 
 // 🔐 Strong password check
 const isStrongPassword = (password: string) => {
@@ -66,10 +67,19 @@ export async function POST(req: NextRequest) {
       name,
       email,
       password: hashedPassword,
-      phone: phone || "",
-      photo: photo || "",
-      gender: gender || "prefer_not_to_say",
-      role: "guest", // always default for registration
+      phone:    phone  || "",
+      photo:    photo  || "",
+      gender:   gender || "prefer_not_to_say",
+      role:     "guest", // always default for registration
+    });
+
+    // 🔔 Welcome notification
+    await createNotification({
+      userId:  user._id,
+      type:    "welcome",
+      title:   `Welcome to JluvStays, ${name.split(" ")[0]}! 🎉`,
+      message: "Your account has been created successfully. Browse our rooms and book your perfect stay today.",
+      link:    "/rooms",
     });
 
     // 🚫 Never return password
@@ -78,13 +88,13 @@ export async function POST(req: NextRequest) {
         success: true,
         message: "Account created successfully",
         data: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          photo: user.photo,
-          gender: user.gender,
-          role: user.role,
+          id:        user._id,
+          name:      user.name,
+          email:     user.email,
+          phone:     user.phone,
+          photo:     user.photo,
+          gender:    user.gender,
+          role:      user.role,
           createdAt: user.createdAt,
         },
       },

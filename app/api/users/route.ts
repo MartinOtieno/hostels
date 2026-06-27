@@ -1,3 +1,5 @@
+// room-booking/app/api/users/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import User from "../../../models/User";
@@ -7,6 +9,16 @@ import crypto from "crypto";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+const STAFF_ROLES = [
+  "admin",
+  "property_manager",
+  "receptionist",
+  "caretaker",
+  "accountant",
+  "security",
+  "maintenance",
+];
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,12 +35,29 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
 
-    const role = searchParams.get("role");
-    const page = Number(searchParams.get("page")) || 1;
-    const limit = Number(searchParams.get("limit")) || 10;
+    const role       = searchParams.get("role");       // single role, e.g. ?role=admin
+    const staffOnly  = searchParams.get("staff");      // ?staff=true  → all staff roles
+    const search     = searchParams.get("search");     // ?search=jane → name/email match
+    const page       = Number(searchParams.get("page"))  || 1;
+    const limit      = Number(searchParams.get("limit")) || 20;
+    const skip       = (page - 1) * limit;
 
-    const filter = role ? { role } : {};
-    const skip = (page - 1) * limit;
+    // Build filter
+    const filter: Record<string, unknown> = {};
+
+    if (staffOnly === "true") {
+      // Return all staff roles in one query
+      filter.role = { $in: STAFF_ROLES };
+    } else if (role) {
+      filter.role = role;
+    }
+
+    if (search) {
+      filter.$or = [
+        { name:  { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
 
     const [users, total] = await Promise.all([
       User.find(filter)
@@ -72,7 +101,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, email, phone, role, status, photo } = body;
 
-    // ✅ Validate
     if (!name || !email) {
       return NextResponse.json(
         { success: false, message: "Name and email are required" },
@@ -80,7 +108,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ Check duplicate
     const existing = await User.findOne({ email });
     if (existing) {
       return NextResponse.json(
@@ -89,43 +116,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🔐 Generate token
-    const rawToken = crypto.randomBytes(32).toString("hex");
+    const rawToken    = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const tokenExpiry = new Date(Date.now() + 1000 * 60 * 60);
 
-    // Hash token before saving
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(rawToken)
-      .digest("hex");
-
-    const tokenExpiry = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
-
-    // ✅ Create user WITHOUT password
     const user = await User.create({
       name,
       email,
       phone,
-      role: role || "guest",
-      status: status || "active",
+      role:    role   || "guest",
+      status:  status || "active",
       photo,
-      password: null,
-      resetPasswordToken: hashedToken,
+      password:             null,
+      resetPasswordToken:   hashedToken,
       resetPasswordExpires: tokenExpiry,
     });
 
-    // 🔗 Setup link
     const setupLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${rawToken}&email=${email}`;
 
-    // 📧 Send email using Resend
     await resend.emails.send({
-      from: "onboarding@resend.dev", // ⚠️ Replace with your verified domain later
-      to: email,
+      from:    "onboarding@resend.dev",
+      to:      email,
       subject: "Set Your Password",
       html: `
         <h2>Hello ${name},</h2>
         <p>Your account has been created by an admin.</p>
         <p>Click the button below to set your password:</p>
-        <a href="${setupLink}" 
+        <a href="${setupLink}"
            style="display:inline-block;padding:10px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:5px;">
            Set Password
         </a>
@@ -133,7 +150,6 @@ export async function POST(req: NextRequest) {
       `,
     });
 
-    // Return user without password
     const created = await User.findById(user._id).select("-password");
 
     return NextResponse.json(
@@ -143,10 +159,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("POST /api/users error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        message: error.message || "Failed to create user",
-      },
+      { success: false, message: error.message || "Failed to create user" },
       { status: 500 }
     );
   }
