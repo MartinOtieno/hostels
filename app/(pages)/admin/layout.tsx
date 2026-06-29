@@ -10,15 +10,7 @@ import { signOut } from "next-auth/react";
 
 type StaffRole = "admin" | "property_manager" | "receptionist" | "caretaker" | "accountant";
 
-interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ReactNode;
-  badge?: number;
-  allowedRoles: StaffRole[];
-}
-
-// ─── SVG Icons (inline, no extra deps) ───────────────────────────────────────
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
 
 const Icon = {
   Overview: () => (
@@ -82,11 +74,6 @@ const Icon = {
       <circle cx="12" cy="8" r="4" /><path d="M4 20v-1a8 8 0 0116 0v1" />
     </svg>
   ),
-  ChevronRight: () => (
-    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path d="M9 18l6-6-6-6" />
-    </svg>
-  ),
   SignOut: () => (
     <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
@@ -104,9 +91,7 @@ const Icon = {
   ),
 };
 
-// ─── Role-based navigation config ────────────────────────────────────────────
-// Each nav item declares which roles can see it.
-// Admin sees everything. Staff roles see a restricted subset.
+// ─── Nav config ───────────────────────────────────────────────────────────────
 
 const NAV_SECTIONS = [
   {
@@ -186,32 +171,36 @@ const NAV_SECTIONS = [
   },
 ];
 
-// Role display labels and colors
 const ROLE_META: Record<StaffRole, { label: string; color: string }> = {
-  admin:            { label: "Administrator",      color: "bg-blue-500" },
-  property_manager: { label: "Property Manager",   color: "bg-emerald-500" },
-  receptionist:     { label: "Receptionist",       color: "bg-violet-500" },
-  caretaker:        { label: "Caretaker",          color: "bg-amber-500" },
-  accountant:       { label: "Accountant",         color: "bg-rose-500" },
+  admin:            { label: "Administrator",    color: "bg-blue-500"    },
+  property_manager: { label: "Property Manager", color: "bg-emerald-500" },
+  receptionist:     { label: "Receptionist",     color: "bg-violet-500"  },
+  caretaker:        { label: "Caretaker",        color: "bg-amber-500"   },
+  accountant:       { label: "Accountant",       color: "bg-rose-500"    },
 };
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Layout ───────────────────────────────────────────────────────────────────
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [pendingCounts, setPendingCounts] = useState({ bookings: 0, viewings: 0, notifications: 0 });
-  // Prevent SSR/client hydration mismatch: nothing auth-dependent renders until
-  // we are on the client and know the real session state.
-  const [mounted, setMounted] = useState(false);
+
+  const [sidebarOpen,   setSidebarOpen]   = useState(false);
+  const [mounted,       setMounted]       = useState(false);
+  const [pendingCounts, setPendingCounts] = useState({
+    bookings:      0,
+    viewings:      0,
+    notifications: 0,
+  });
+
   useEffect(() => { setMounted(true); }, []);
 
   const userRole = (session?.user as { role?: StaffRole })?.role ?? "receptionist";
+  const userId   = (session?.user as { id?: string })?.id ?? "";
   const roleMeta = ROLE_META[userRole] ?? ROLE_META.receptionist;
 
-  // Auth guard — only runs after mount so the server never redirects
+  // Auth guard
   useEffect(() => {
     if (!mounted) return;
     if (status === "unauthenticated") { router.push("/login"); return; }
@@ -220,17 +209,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [mounted, status, session, router, userRole]);
 
-  // Fetch pending counts for badges (filter client-side — avoids dependency on API query params)
+  // ── Fetch all badge counts including unread notifications ─────────────────
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (status !== "authenticated" || !userId) return;
+
     const fetchCounts = async () => {
       try {
-        const [bookingsRes, viewingsRes] = await Promise.all([
+        const [bookingsRes, viewingsRes, notifRes] = await Promise.all([
           fetch("/api/bookings"),
           fetch("/api/viewing-request"),
+          fetch(`/api/notifications?userId=${userId}&unreadOnly=true`),
         ]);
+
         const bookings = await bookingsRes.json();
         const viewings = await viewingsRes.json();
+        const notifs   = await notifRes.json();
+
         setPendingCounts({
           bookings: bookings.success
             ? bookings.data.filter((b: { status: string }) => b.status === "pending").length
@@ -238,24 +232,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           viewings: viewings.success
             ? viewings.data.filter((v: { status: string }) => v.status === "pending").length
             : 0,
-          notifications: 0,
+          notifications: notifs.success ? notifs.unreadCount : 0,
         });
       } catch { /* silent */ }
     };
+
     fetchCounts();
     const interval = setInterval(fetchCounts, 60_000);
     return () => clearInterval(interval);
-  }, [status]);
+  }, [status, userId]);
 
   // Badge map keyed by href
   const badges: Record<string, number> = {
-    "/admin/bookings": pendingCounts.bookings,
+    "/admin/bookings":       pendingCounts.bookings,
     "/admin/viewing-requests": pendingCounts.viewings,
-    "/admin/notifications": pendingCounts.notifications,
+    "/admin/notifications":  pendingCounts.notifications,
   };
 
-  // Before client mount, render a neutral shell that matches what SSR produces.
-  // This is the ONLY way to prevent the hydration mismatch with next-auth.
   if (!mounted || status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950">
@@ -284,7 +277,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
 
-      {/* Nav sections */}
+      {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
         {NAV_SECTIONS.map((section) => {
           const visibleItems = section.items.filter(item =>
@@ -360,12 +353,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* ── Desktop Sidebar ── */}
+      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 bg-slate-950 flex-col fixed top-0 left-0 bottom-0 z-40">
         <SidebarContent />
       </aside>
 
-      {/* ── Mobile Sidebar Overlay ── */}
+      {/* Mobile Sidebar */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
@@ -381,7 +374,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      {/* ── Main ── */}
+      {/* Main */}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         {/* Mobile top bar */}
         <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
@@ -391,9 +384,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <span className="font-semibold text-slate-800">
             Jluv<span className="text-blue-600">Stays</span>
           </span>
-          {(pendingCounts.bookings + pendingCounts.viewings) > 0 && (
+          {/* Mobile total badge */}
+          {(pendingCounts.bookings + pendingCounts.viewings + pendingCounts.notifications) > 0 && (
             <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-              {pendingCounts.bookings + pendingCounts.viewings}
+              {pendingCounts.bookings + pendingCounts.viewings + pendingCounts.notifications}
             </span>
           )}
         </header>

@@ -2,8 +2,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import ViewingRequest from "@/models/ViewingRequest";
+import User from "@/models/User";
 import mongoose from "mongoose";
 import { createNotification } from "@/lib/createNotification";
+
+// ─── Helper: notify all admins ────────────────────────────────────────────────
+async function notifyAdmins(payload: {
+  type: "viewing_approved" | "viewing_rejected" | "viewing_pending" | "general";
+  title: string;
+  message: string;
+  link: string;
+  refId?: mongoose.Types.ObjectId;
+}) {
+  try {
+    const admins = await User.find({ role: "admin" }).select("_id");
+    await Promise.all(
+      admins.map(admin =>
+        createNotification({
+          userId:   admin._id,
+          type:     payload.type,
+          title:    payload.title,
+          message:  payload.message,
+          link:     payload.link,
+          refId:    payload.refId,
+          refModel: "ViewingRequest",
+        })
+      )
+    );
+  } catch (err) {
+    console.error("notifyAdmins error:", err);
+  }
+}
 
 // ─── PATCH /api/viewing-request/[id] ─────────────────────────────────────────
 export async function PATCH(
@@ -45,38 +74,59 @@ export async function PATCH(
       );
     }
 
-    // ── Fire notification based on new status ─────────────────────────────────
     const roomName      = updated.room?.name ?? "the room";
+    const guestName     = updated.user?.name ?? "A guest";
     const preferredDate = new Date(updated.preferredDate).toLocaleDateString("en-KE", {
       weekday: "long", day: "numeric", month: "short", year: "numeric",
     });
 
     if (status === "approved") {
+      // Notify guest
       await createNotification({
         userId:   updated.user._id,
         type:     "viewing_approved",
         title:    "Viewing Request Approved ✅",
         message:  `Your viewing request for ${roomName} on ${preferredDate} has been approved. Our team will contact you to confirm the time.`,
-        link:     "/trips",
+        link:     "/viewing-requests",
         refId:    updated._id,
         refModel: "ViewingRequest",
       });
+
+      // Notify admins
+      await notifyAdmins({
+        type:    "viewing_approved",
+        title:   "Viewing Approved ✅",
+        message: `${guestName}'s viewing request for ${roomName} on ${preferredDate} has been approved.`,
+        link:    "/admin/viewing-requests",
+        refId:   updated._id,
+      });
+
     } else if (status === "rejected") {
+      // Notify guest
       await createNotification({
         userId:   updated.user._id,
         type:     "viewing_rejected",
-        title:    "Viewing Request Declined",
+        title:    "Viewing Request Declined ❌",
         message:  `Unfortunately your viewing request for ${roomName} on ${preferredDate} could not be accommodated. Browse other available rooms or request a different date.`,
         link:     "/rooms",
         refId:    updated._id,
         refModel: "ViewingRequest",
+      });
+
+      // Notify admins
+      await notifyAdmins({
+        type:    "viewing_rejected",
+        title:   "Viewing Declined ❌",
+        message: `${guestName}'s viewing request for ${roomName} on ${preferredDate} has been declined.`,
+        link:    "/admin/viewing-requests",
+        refId:   updated._id,
       });
     }
 
     return NextResponse.json({
       success: true,
       message: `Viewing request ${status}`,
-      data: updated,
+      data:    updated,
     });
   } catch (error) {
     console.error("PATCH /api/viewing-request/[id] error:", error);

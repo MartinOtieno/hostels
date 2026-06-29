@@ -57,6 +57,19 @@ const Icon = {
       <path d="M4 20v-1a8 8 0 0116 0v1" />
     </svg>
   ),
+  Notifications: () => (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 01-3.46 0" />
+    </svg>
+  ),
+  Contacts: () => (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+    </svg>
+  ),
   SignOut: () => (
     <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
@@ -75,7 +88,6 @@ const Icon = {
 };
 
 // ─── Navigation config ────────────────────────────────────────────────────────
-// Each item declares which staff positions can see it.
 
 const NAV_SECTIONS = [
   {
@@ -140,6 +152,37 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: "Communication",
+    items: [
+      {
+        label: "Notifications",
+        href: "/staff/notifications",
+        icon: <Icon.Notifications />,
+        allowedPositions: [
+          "property_manager",
+          "receptionist",
+          "caretaker",
+          "accountant",
+          "security",
+          "maintenance",
+        ] as StaffPosition[],
+      },
+      {
+        label: "Contacts",
+        href: "/staff/contacts",
+        icon: <Icon.Contacts />,
+        allowedPositions: [
+          "property_manager",
+          "receptionist",
+          "caretaker",
+          "accountant",
+          "security",
+          "maintenance",
+        ] as StaffPosition[],
+      },
+    ],
+  },
+  {
     title: "Account",
     items: [
       {
@@ -180,7 +223,11 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [pendingCounts, setPendingCounts] = useState({ bookings: 0, viewings: 0 });
+  const [pendingCounts, setPendingCounts] = useState({
+    bookings: 0,
+    viewings: 0,
+    notifications: 0,
+  });
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -195,7 +242,6 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     if (!mounted) return;
     if (status === "unauthenticated") { router.push("/login"); return; }
     if (status === "authenticated" && !isStaff) {
-      // admin goes to /admin, guests go to /
       router.push(userRole === "admin" ? "/admin" : "/");
     }
   }, [mounted, status, isStaff, userRole, router]);
@@ -205,15 +251,24 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     if (status !== "authenticated" || !isStaff) return;
     const load = async () => {
       try {
-        const [bRes, vRes] = await Promise.all([
+        const [bRes, vRes, nRes] = await Promise.all([
           fetch("/api/bookings"),
           fetch("/api/viewing-request"),
+          fetch("/api/notifications"),
         ]);
         const b = await bRes.json();
         const v = await vRes.json();
+        const n = await nRes.json();
         setPendingCounts({
-          bookings: b.success ? b.data.filter((x: { status: string }) => x.status === "pending").length : 0,
-          viewings: v.success ? v.data.filter((x: { status: string }) => x.status === "pending").length : 0,
+          bookings: b.success
+            ? b.data.filter((x: { status: string }) => x.status === "pending").length
+            : 0,
+          viewings: v.success
+            ? v.data.filter((x: { status: string }) => x.status === "pending").length
+            : 0,
+          notifications: n.success
+            ? n.data.filter((x: { read: boolean }) => !x.read).length
+            : 0,
         });
       } catch { /* silent */ }
     };
@@ -223,9 +278,13 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   }, [status, isStaff]);
 
   const badges: Record<string, number> = {
-    "/staff/bookings": pendingCounts.bookings,
-    "/staff/viewings": pendingCounts.viewings,
+    "/staff/bookings":      pendingCounts.bookings,
+    "/staff/viewings":      pendingCounts.viewings,
+    "/staff/notifications": pendingCounts.notifications,
   };
+
+  const totalBadge =
+    pendingCounts.bookings + pendingCounts.viewings + pendingCounts.notifications;
 
   // Loading / SSR shell
   if (!mounted || status === "loading") {
@@ -368,11 +427,26 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           <span className="font-semibold text-slate-800">
             Jluv<span className="text-violet-600">Stays</span>
           </span>
-          {(pendingCounts.bookings + pendingCounts.viewings) > 0 && (
-            <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-              {pendingCounts.bookings + pendingCounts.viewings}
-            </span>
-          )}
+          <div className="ml-auto flex items-center gap-2">
+            {/* Notifications shortcut on mobile */}
+            <Link
+              href="/staff/notifications"
+              className="relative text-slate-500 hover:text-slate-800 p-1"
+            >
+              <Icon.Notifications />
+              {pendingCounts.notifications > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {pendingCounts.notifications > 9 ? "9+" : pendingCounts.notifications}
+                </span>
+              )}
+            </Link>
+            {/* Total badge (bookings + viewings) */}
+            {(pendingCounts.bookings + pendingCounts.viewings) > 0 && (
+              <span className="bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {pendingCounts.bookings + pendingCounts.viewings}
+              </span>
+            )}
+          </div>
         </header>
 
         <main className="flex-1 p-6 lg:p-8">

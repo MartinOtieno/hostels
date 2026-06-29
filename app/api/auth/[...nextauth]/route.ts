@@ -5,10 +5,11 @@ import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 
 interface ExtendedUser {
-  id: string;
-  name: string;
+  id:    string;
+  name:  string;
   email: string;
-  role: string;
+  role:  string;
+  photo: string; // ← added
 }
 
 export const authOptions: NextAuthOptions = {
@@ -16,13 +17,11 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email:    { label: "Email",    type: "email"    },
         password: { label: "Password", type: "password" },
       },
 
       async authorize(credentials) {
-        // ✅ Return null instead of throwing — throwing causes NextAuth to
-        // redirect to the error page, which breaks redirect:false on the client
         if (!credentials?.email || !credentials?.password) {
           throw new Error("MISSING_CREDENTIALS");
         }
@@ -35,25 +34,22 @@ export const authOptions: NextAuthOptions = {
 
         const user = await User.findOne({ email: credentials.email });
 
-        if (!user) {
-          throw new Error("USER_NOT_FOUND");
-        }
+        if (!user) throw new Error("USER_NOT_FOUND");
 
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
           user.password
         );
 
-        if (!isPasswordValid) {
-          throw new Error("INVALID_PASSWORD");
-        }
+        if (!isPasswordValid) throw new Error("INVALID_PASSWORD");
 
-        // ✅ Return the user object on success
+        // ← photo included in returned object
         return {
-          id: user._id.toString(),
-          name: user.name,
+          id:    user._id.toString(),
+          name:  user.name,
           email: user.email,
-          role: user.role,
+          role:  user.role,
+          photo: user.photo ?? "",
         };
       },
     }),
@@ -62,16 +58,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = (user as ExtendedUser).id;
-        token.role = (user as ExtendedUser).role;
+        token.id    = (user as ExtendedUser).id;
+        token.role  = (user as ExtendedUser).role;
+        token.photo = (user as ExtendedUser).photo; // ← added
       }
       return token;
     },
 
     async session({ session, token }) {
       if (session.user) {
-        (session.user as ExtendedUser).id = token.id as string;
-        (session.user as ExtendedUser).role = token.role as string;
+        (session.user as ExtendedUser).id    = token.id    as string;
+        (session.user as ExtendedUser).role  = token.role  as string;
+        (session.user as ExtendedUser).photo = token.photo as string; // ← added
       }
       return session;
     },
@@ -79,10 +77,6 @@ export const authOptions: NextAuthOptions = {
 
   pages: {
     signIn: "/login",
-    // ❌ REMOVED: error: "/login"
-    // This was the root cause — when authorize() throws, NextAuth redirects
-    // to this error page. Combined with redirect:false on the client, the
-    // response gets swallowed silently and nothing happens.
   },
 
   session: {
@@ -93,5 +87,4 @@ export const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
-
 export { handler as GET, handler as POST };
