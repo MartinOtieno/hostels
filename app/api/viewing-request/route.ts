@@ -7,6 +7,8 @@ import Room from "../../../models/Room";
 import User from "@/models/User";
 import { createNotification } from "@/lib/createNotification";
 
+const VIEWING_STAFF_POSITIONS = ["property_manager", "receptionist"];
+
 // ─── Helper: notify all admins ────────────────────────────────────────────────
 async function notifyAdmins(payload: {
   type: "viewing_pending" | "viewing_approved" | "viewing_rejected" | "general";
@@ -36,6 +38,37 @@ async function notifyAdmins(payload: {
   }
 }
 
+// ─── Helper: notify relevant staff positions ─────────────────────────────────
+async function notifyStaff(payload: {
+  type: "viewing_pending" | "viewing_approved" | "viewing_rejected" | "general";
+  title: string;
+  message: string;
+  link: string;
+  refId?: unknown;
+  refModel?: "Booking" | "ViewingRequest" | null;
+}) {
+  try {
+    const staff = await User.find({
+      role: { $in: VIEWING_STAFF_POSITIONS },
+    }).select("_id");
+    await Promise.all(
+      staff.map(s =>
+        createNotification({
+          userId:   s._id,
+          type:     payload.type,
+          title:    payload.title,
+          message:  payload.message,
+          link:     payload.link,
+          refId:    payload.refId as string | undefined,
+          refModel: payload.refModel,
+        })
+      )
+    );
+  } catch (err) {
+    console.error("notifyStaff error:", err);
+  }
+}
+
 // -----------------------------------------------
 // POST /api/viewing-request — Submit a viewing request
 // -----------------------------------------------
@@ -46,7 +79,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { userId, roomId, preferredDate, message } = body;
 
-    // 1. Validate required fields
     if (!userId || !roomId || !preferredDate) {
       return NextResponse.json(
         { success: false, message: "userId, roomId and preferredDate are required" },
@@ -54,7 +86,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Validate preferred date is not in the past
     const preferred = new Date(preferredDate);
     if (preferred < new Date()) {
       return NextResponse.json(
@@ -63,7 +94,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Check if room exists
     const room = await Room.findById(roomId);
     if (!room) {
       return NextResponse.json(
@@ -72,7 +102,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Check if user already has a pending viewing request for this room
     const existingRequest = await ViewingRequest.findOne({
       user:   userId,
       room:   roomId,
@@ -86,7 +115,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Create viewing request
     const viewingRequest = await ViewingRequest.create({
       user:          userId,
       room:          roomId,
@@ -95,19 +123,17 @@ export async function POST(req: NextRequest) {
       status:        "pending",
     });
 
-    // 6. Populate response
     const populated = await viewingRequest.populate([
       { path: "room", select: "name type pricePerNight" },
       { path: "user", select: "name email phone" },
     ]);
 
-    // 7. Format date
     const preferredFmt = preferred.toLocaleDateString("en-KE", {
       weekday: "long", day: "numeric", month: "short", year: "numeric",
     });
     const guestName = populated.user?.name ?? "A guest";
 
-    // 8. 🔔 Notify the guest — request received
+    // 🔔 Notify the guest
     await createNotification({
       userId,
       type:     "viewing_pending",
@@ -118,15 +144,19 @@ export async function POST(req: NextRequest) {
       refModel: "ViewingRequest",
     });
 
-    // 9. 🔔 Notify all admins — new viewing request
-    await notifyAdmins({
-      type:     "viewing_pending",
+    const staffNotifPayload = {
+      type:     "viewing_pending" as const,
       title:    "New Viewing Request 👁️",
       message:  `${guestName} has requested to view ${room.name} on ${preferredFmt}. Review and approve or decline.`,
-      link:     "/admin/viewing-requests",
       refId:    viewingRequest._id,
-      refModel: "ViewingRequest",
-    });
+      refModel: "ViewingRequest" as const,
+    };
+
+    // 🔔 Notify admins
+    await notifyAdmins({ ...staffNotifPayload, link: "/admin/viewing-requests" });
+
+    // 🔔 Notify relevant staff
+    await notifyStaff({ ...staffNotifPayload, link: "/staff/viewings" });
 
     return NextResponse.json(
       {

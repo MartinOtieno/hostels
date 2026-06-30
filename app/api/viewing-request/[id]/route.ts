@@ -6,6 +6,8 @@ import User from "@/models/User";
 import mongoose from "mongoose";
 import { createNotification } from "@/lib/createNotification";
 
+const VIEWING_STAFF_POSITIONS = ["property_manager", "receptionist"];
+
 // ─── Helper: notify all admins ────────────────────────────────────────────────
 async function notifyAdmins(payload: {
   type: "viewing_approved" | "viewing_rejected" | "viewing_pending" | "general";
@@ -31,6 +33,36 @@ async function notifyAdmins(payload: {
     );
   } catch (err) {
     console.error("notifyAdmins error:", err);
+  }
+}
+
+// ─── Helper: notify relevant staff positions ─────────────────────────────────
+async function notifyStaff(payload: {
+  type: "viewing_approved" | "viewing_rejected" | "viewing_pending" | "general";
+  title: string;
+  message: string;
+  link: string;
+  refId?: mongoose.Types.ObjectId;
+}) {
+  try {
+    const staff = await User.find({
+      role: { $in: VIEWING_STAFF_POSITIONS },
+    }).select("_id");
+    await Promise.all(
+      staff.map(s =>
+        createNotification({
+          userId:   s._id,
+          type:     payload.type,
+          title:    payload.title,
+          message:  payload.message,
+          link:     payload.link,
+          refId:    payload.refId,
+          refModel: "ViewingRequest",
+        })
+      )
+    );
+  } catch (err) {
+    console.error("notifyStaff error:", err);
   }
 }
 
@@ -81,7 +113,6 @@ export async function PATCH(
     });
 
     if (status === "approved") {
-      // Notify guest
       await createNotification({
         userId:   updated.user._id,
         type:     "viewing_approved",
@@ -92,17 +123,16 @@ export async function PATCH(
         refModel: "ViewingRequest",
       });
 
-      // Notify admins
-      await notifyAdmins({
-        type:    "viewing_approved",
+      const staffPayload = {
+        type:    "viewing_approved" as const,
         title:   "Viewing Approved ✅",
         message: `${guestName}'s viewing request for ${roomName} on ${preferredDate} has been approved.`,
-        link:    "/admin/viewing-requests",
         refId:   updated._id,
-      });
+      };
+      await notifyAdmins({ ...staffPayload, link: "/admin/viewing-requests" });
+      await notifyStaff({ ...staffPayload, link: "/staff/viewings" });
 
     } else if (status === "rejected") {
-      // Notify guest
       await createNotification({
         userId:   updated.user._id,
         type:     "viewing_rejected",
@@ -113,14 +143,14 @@ export async function PATCH(
         refModel: "ViewingRequest",
       });
 
-      // Notify admins
-      await notifyAdmins({
-        type:    "viewing_rejected",
+      const staffPayload = {
+        type:    "viewing_rejected" as const,
         title:   "Viewing Declined ❌",
         message: `${guestName}'s viewing request for ${roomName} on ${preferredDate} has been declined.`,
-        link:    "/admin/viewing-requests",
         refId:   updated._id,
-      });
+      };
+      await notifyAdmins({ ...staffPayload, link: "/admin/viewing-requests" });
+      await notifyStaff({ ...staffPayload, link: "/staff/viewings" });
     }
 
     return NextResponse.json({

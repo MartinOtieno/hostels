@@ -22,13 +22,22 @@ interface PropertySettings {
   }[];
 }
 
+interface ContactForm {
+  name:    string;
+  email:   string;
+  phone:   string;
+  message: string;
+}
+
+const EMPTY_FORM: ContactForm = { name: "", email: "", phone: "", message: "" };
+
 export default function ContactPage() {
-  const [form, setForm]       = useState({ name: "", email: "", phone: "", message: "" });
+  const [form, setForm]       = useState<ContactForm>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError]     = useState("");
 
-  // ── Property settings (phone, email, address, map) ──────────────────────────
+  // ── Property settings ────────────────────────────────────────────────────────
   const [settings, setSettings]               = useState<PropertySettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
 
@@ -65,8 +74,9 @@ export default function ContactPage() {
     { icon: "🕐", label: "Office Hours", value: officeHours,          href: null              },
   ];
 
+  // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,11 +84,27 @@ export default function ContactPage() {
     setLoading(true);
     setError("");
     setSuccess("");
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      const res = await fetch("/api/contact", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Something went wrong. Please try again.");
+      }
+
       setSuccess("Message sent! We'll get back to you within 24 hours.");
-      setForm({ name: "", email: "", phone: "", message: "" });
-    }, 1500);
+      setForm(EMPTY_FORM);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -111,7 +137,7 @@ export default function ContactPage() {
 
             {settingsLoading ? (
               <div className="space-y-5">
-                {[1,2,3,4].map(i => (
+                {[1, 2, 3, 4].map(i => (
                   <div key={i} className="flex items-start gap-4 animate-pulse">
                     <div className="w-10 h-10 rounded-xl bg-slate-100 shrink-0" />
                     <div className="flex-1 space-y-1.5 pt-1">
@@ -251,7 +277,7 @@ export default function ContactPage() {
             </form>
           </div>
 
-          {/* ── Map — sourced from PropertySettings.address.mapsUrl ── */}
+          {/* ── Map ── */}
           <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 h-72">
             {settingsLoading ? (
               <div className="w-full h-full animate-pulse bg-slate-200" />

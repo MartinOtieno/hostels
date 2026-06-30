@@ -1,6 +1,5 @@
 // lib/createNotification.ts
-// ─── Helper used by booking, viewing, and register routes ────────────────────
-// Call this server-side whenever you want to push a notification to a user.
+// ─── Helper used by all API routes to push notifications ─────────────────────
 
 import { connectDB } from "@/lib/db";
 import Notification from "@/models/Notification";
@@ -26,6 +25,7 @@ interface NotificationPayload {
   refModel?: "Booking" | "ViewingRequest" | null;
 }
 
+// ─── Create a single notification ────────────────────────────────────────────
 export async function createNotification(payload: NotificationPayload) {
   try {
     await connectDB();
@@ -43,4 +43,68 @@ export async function createNotification(payload: NotificationPayload) {
     // Never let notification failure break the main action
     console.error("createNotification error:", err);
   }
+}
+
+// ─── Notify all admins ────────────────────────────────────────────────────────
+export async function notifyAdmins(payload: Omit<NotificationPayload, "userId">) {
+  try {
+    await connectDB();
+    // Import here to avoid circular deps
+    const User = (await import("@/models/User")).default;
+    const admins = await User.find({ role: "admin" }).select("_id");
+    await Promise.all(
+      admins.map((admin: { _id: mongoose.Types.ObjectId }) =>
+        createNotification({ ...payload, userId: admin._id })
+      )
+    );
+  } catch (err) {
+    console.error("notifyAdmins error:", err);
+  }
+}
+
+// ─── Notify all staff of specific positions ───────────────────────────────────
+// positions: e.g. ["property_manager", "receptionist"]
+// pass empty array [] to notify ALL staff positions
+export async function notifyStaff(
+  positions: string[],
+  payload: Omit<NotificationPayload, "userId">
+) {
+  try {
+    await connectDB();
+    const User = (await import("@/models/User")).default;
+
+    const STAFF_POSITIONS = [
+      "property_manager",
+      "receptionist",
+      "caretaker",
+      "accountant",
+      "security",
+      "maintenance",
+    ];
+
+    const targetPositions = positions.length > 0 ? positions : STAFF_POSITIONS;
+
+    const staffUsers = await User.find({
+      role: { $in: targetPositions },
+    }).select("_id");
+
+    await Promise.all(
+      staffUsers.map((staff: { _id: mongoose.Types.ObjectId }) =>
+        createNotification({ ...payload, userId: staff._id })
+      )
+    );
+  } catch (err) {
+    console.error("notifyStaff error:", err);
+  }
+}
+
+// ─── Notify both admins and relevant staff ────────────────────────────────────
+export async function notifyAdminsAndStaff(
+  staffPositions: string[],
+  payload: Omit<NotificationPayload, "userId">
+) {
+  await Promise.all([
+    notifyAdmins(payload),
+    notifyStaff(staffPositions, payload),
+  ]);
 }

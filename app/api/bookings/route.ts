@@ -7,9 +7,11 @@ import Room from "@/models/Room";
 import User from "@/models/User";
 import { createNotification } from "@/lib/createNotification";
 
+const BOOKING_STAFF_POSITIONS = ["property_manager", "receptionist", "accountant"];
+
 // ─── Helper: notify all admins ────────────────────────────────────────────────
 async function notifyAdmins(payload: {
-  type: "booking_pending" | "viewing_pending" | "booking_confirmed" | "booking_cancelled" | "general";
+  type: "booking_pending" | "booking_confirmed" | "booking_cancelled" | "general";
   title: string;
   message: string;
   link: string;
@@ -36,6 +38,37 @@ async function notifyAdmins(payload: {
   }
 }
 
+// ─── Helper: notify relevant staff positions ─────────────────────────────────
+async function notifyStaff(payload: {
+  type: "booking_pending" | "booking_confirmed" | "booking_cancelled" | "general";
+  title: string;
+  message: string;
+  link: string;
+  refId?: unknown;
+  refModel?: "Booking" | "ViewingRequest" | null;
+}) {
+  try {
+    const staff = await User.find({
+      role: { $in: BOOKING_STAFF_POSITIONS },
+    }).select("_id");
+    await Promise.all(
+      staff.map(s =>
+        createNotification({
+          userId:   s._id,
+          type:     payload.type,
+          title:    payload.title,
+          message:  payload.message,
+          link:     payload.link,
+          refId:    payload.refId as string | undefined,
+          refModel: payload.refModel,
+        })
+      )
+    );
+  } catch (err) {
+    console.error("notifyStaff error:", err);
+  }
+}
+
 // -----------------------------------------------
 // POST /api/bookings — Create a new booking
 // -----------------------------------------------
@@ -46,7 +79,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { userId, roomId, checkIn, checkOut } = body;
 
-    // 1. Validate required fields
     if (!userId || !roomId || !checkIn || !checkOut) {
       return NextResponse.json(
         { success: false, message: "userId, roomId, checkIn and checkOut are required" },
@@ -54,11 +86,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Parse dates
     const checkInDate  = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
 
-    // 3. Validate date logic
     if (checkInDate >= checkOutDate) {
       return NextResponse.json(
         { success: false, message: "checkOut date must be after checkIn date" },
@@ -73,7 +103,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Check if room exists
     const room = await Room.findById(roomId);
     if (!room) {
       return NextResponse.json(
@@ -82,7 +111,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Check if room is available
     if (!room.isAvailable) {
       return NextResponse.json(
         { success: false, message: "Room is not available for booking" },
@@ -90,7 +118,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 6. Check for double booking
     const overlappingBooking = await Booking.findOne({
       room:   roomId,
       status: { $ne: "cancelled" },
@@ -108,12 +135,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 7. Calculate total price
     const msPerDay   = 1000 * 60 * 60 * 24;
     const nights     = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / msPerDay);
     const totalPrice = nights * room.pricePerNight;
 
-    // 8. Create booking
     const booking = await Booking.create({
       user:       userId,
       room:       roomId,
@@ -123,18 +148,16 @@ export async function POST(req: NextRequest) {
       status:     "pending",
     });
 
-    // 9. Populate room and user details in response
     const populatedBooking = await booking.populate([
       { path: "room", select: "name pricePerNight type" },
       { path: "user", select: "name email" },
     ]);
 
-    // 10. Format dates for notifications
     const checkInFmt  = checkInDate.toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" });
     const checkOutFmt = checkOutDate.toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" });
     const guestName   = populatedBooking.user?.name ?? "A guest";
 
-    // 11. 🔔 Notify the guest — booking received
+    // 🔔 Notify the guest
     await createNotification({
       userId,
       type:     "booking_pending",
@@ -145,15 +168,19 @@ export async function POST(req: NextRequest) {
       refModel: "Booking",
     });
 
-    // 12. 🔔 Notify all admins — new booking needs attention
-    await notifyAdmins({
-      type:     "booking_pending",
+    const staffNotifPayload = {
+      type:     "booking_pending" as const,
       title:    "New Booking Request 🏠",
       message:  `${guestName} has requested to book ${room.name} from ${checkInFmt} to ${checkOutFmt} for Ksh ${totalPrice.toLocaleString()}. Review and confirm.`,
-      link:     "/admin/bookings",
       refId:    booking._id,
-      refModel: "Booking",
-    });
+      refModel: "Booking" as const,
+    };
+
+    // 🔔 Notify admins
+    await notifyAdmins({ ...staffNotifPayload, link: "/admin/bookings" });
+
+    // 🔔 Notify relevant staff
+    await notifyStaff({ ...staffNotifPayload, link: "/staff/bookings" });
 
     return NextResponse.json(
       {

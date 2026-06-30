@@ -98,12 +98,8 @@ const NAV_SECTIONS = [
         href: "/staff",
         icon: <Icon.Overview />,
         allowedPositions: [
-          "property_manager",
-          "receptionist",
-          "caretaker",
-          "accountant",
-          "security",
-          "maintenance",
+          "property_manager", "receptionist", "caretaker",
+          "accountant", "security", "maintenance",
         ] as StaffPosition[],
       },
     ],
@@ -115,39 +111,25 @@ const NAV_SECTIONS = [
         label: "Bookings",
         href: "/staff/bookings",
         icon: <Icon.Bookings />,
-        allowedPositions: [
-          "property_manager",
-          "receptionist",
-          "accountant",
-        ] as StaffPosition[],
+        allowedPositions: ["property_manager", "receptionist", "accountant"] as StaffPosition[],
       },
       {
         label: "Check-in / Check-out",
         href: "/staff/checkin",
         icon: <Icon.CheckIn />,
-        allowedPositions: [
-          "property_manager",
-          "receptionist",
-        ] as StaffPosition[],
+        allowedPositions: ["property_manager", "receptionist"] as StaffPosition[],
       },
       {
         label: "Rooms",
         href: "/staff/rooms",
         icon: <Icon.Rooms />,
-        allowedPositions: [
-          "property_manager",
-          "caretaker",
-          "maintenance",
-        ] as StaffPosition[],
+        allowedPositions: ["property_manager", "caretaker", "maintenance"] as StaffPosition[],
       },
       {
         label: "Viewing Requests",
         href: "/staff/viewings",
         icon: <Icon.Viewings />,
-        allowedPositions: [
-          "property_manager",
-          "receptionist",
-        ] as StaffPosition[],
+        allowedPositions: ["property_manager", "receptionist"] as StaffPosition[],
       },
     ],
   },
@@ -159,12 +141,8 @@ const NAV_SECTIONS = [
         href: "/staff/notifications",
         icon: <Icon.Notifications />,
         allowedPositions: [
-          "property_manager",
-          "receptionist",
-          "caretaker",
-          "accountant",
-          "security",
-          "maintenance",
+          "property_manager", "receptionist", "caretaker",
+          "accountant", "security", "maintenance",
         ] as StaffPosition[],
       },
       {
@@ -172,12 +150,8 @@ const NAV_SECTIONS = [
         href: "/staff/contacts",
         icon: <Icon.Contacts />,
         allowedPositions: [
-          "property_manager",
-          "receptionist",
-          "caretaker",
-          "accountant",
-          "security",
-          "maintenance",
+          "property_manager", "receptionist", "caretaker",
+          "accountant", "security", "maintenance",
         ] as StaffPosition[],
       },
     ],
@@ -190,12 +164,8 @@ const NAV_SECTIONS = [
         href: "/staff/profile",
         icon: <Icon.Profile />,
         allowedPositions: [
-          "property_manager",
-          "receptionist",
-          "caretaker",
-          "accountant",
-          "security",
-          "maintenance",
+          "property_manager", "receptionist", "caretaker",
+          "accountant", "security", "maintenance",
         ] as StaffPosition[],
       },
     ],
@@ -233,6 +203,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   useEffect(() => { setMounted(true); }, []);
 
   const userRole = (session?.user as { role?: string })?.role ?? "";
+  const userId   = (session?.user as { id?: string })?.id ?? "";
   const isStaff  = STAFF_POSITIONS.includes(userRole as StaffPosition);
   const position = userRole as StaffPosition;
   const posMeta  = POSITION_META[position] ?? POSITION_META.receptionist;
@@ -246,19 +217,21 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     }
   }, [mounted, status, isStaff, userRole, router]);
 
-  // Fetch pending badge counts
+  // ── Fetch pending badge counts (bookings, viewings, notifications) ────────
   useEffect(() => {
-    if (status !== "authenticated" || !isStaff) return;
+    if (status !== "authenticated" || !isStaff || !userId) return;
+
     const load = async () => {
       try {
         const [bRes, vRes, nRes] = await Promise.all([
           fetch("/api/bookings"),
           fetch("/api/viewing-request"),
-          fetch("/api/notifications"),
+          fetch(`/api/notifications?userId=${userId}&unreadOnly=true`),
         ]);
         const b = await bRes.json();
         const v = await vRes.json();
         const n = await nRes.json();
+
         setPendingCounts({
           bookings: b.success
             ? b.data.filter((x: { status: string }) => x.status === "pending").length
@@ -266,25 +239,21 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           viewings: v.success
             ? v.data.filter((x: { status: string }) => x.status === "pending").length
             : 0,
-          notifications: n.success
-            ? n.data.filter((x: { read: boolean }) => !x.read).length
-            : 0,
+          notifications: n.success ? n.unreadCount : 0,
         });
       } catch { /* silent */ }
     };
+
     load();
     const iv = setInterval(load, 60_000);
     return () => clearInterval(iv);
-  }, [status, isStaff]);
+  }, [status, isStaff, userId]);
 
   const badges: Record<string, number> = {
     "/staff/bookings":      pendingCounts.bookings,
     "/staff/viewings":      pendingCounts.viewings,
     "/staff/notifications": pendingCounts.notifications,
   };
-
-  const totalBadge =
-    pendingCounts.bookings + pendingCounts.viewings + pendingCounts.notifications;
 
   // Loading / SSR shell
   if (!mounted || status === "loading") {
@@ -428,7 +397,6 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             Jluv<span className="text-violet-600">Stays</span>
           </span>
           <div className="ml-auto flex items-center gap-2">
-            {/* Notifications shortcut on mobile */}
             <Link
               href="/staff/notifications"
               className="relative text-slate-500 hover:text-slate-800 p-1"
@@ -440,7 +408,6 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                 </span>
               )}
             </Link>
-            {/* Total badge (bookings + viewings) */}
             {(pendingCounts.bookings + pendingCounts.viewings) > 0 && (
               <span className="bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
                 {pendingCounts.bookings + pendingCounts.viewings}

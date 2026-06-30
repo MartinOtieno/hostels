@@ -6,6 +6,8 @@ import User from "@/models/User";
 import mongoose from "mongoose";
 import { createNotification } from "@/lib/createNotification";
 
+const BOOKING_STAFF_POSITIONS = ["property_manager", "receptionist", "accountant"];
+
 // ─── Helper: notify all admins ────────────────────────────────────────────────
 async function notifyAdmins(payload: {
   type: "booking_confirmed" | "booking_cancelled" | "booking_pending" | "general";
@@ -31,6 +33,36 @@ async function notifyAdmins(payload: {
     );
   } catch (err) {
     console.error("notifyAdmins error:", err);
+  }
+}
+
+// ─── Helper: notify relevant staff positions ─────────────────────────────────
+async function notifyStaff(payload: {
+  type: "booking_confirmed" | "booking_cancelled" | "booking_pending" | "general";
+  title: string;
+  message: string;
+  link: string;
+  refId?: mongoose.Types.ObjectId;
+}) {
+  try {
+    const staff = await User.find({
+      role: { $in: BOOKING_STAFF_POSITIONS },
+    }).select("_id");
+    await Promise.all(
+      staff.map(s =>
+        createNotification({
+          userId:   s._id,
+          type:     payload.type,
+          title:    payload.title,
+          message:  payload.message,
+          link:     payload.link,
+          refId:    payload.refId,
+          refModel: "Booking",
+        })
+      )
+    );
+  } catch (err) {
+    console.error("notifyStaff error:", err);
   }
 }
 
@@ -80,7 +112,6 @@ export async function PATCH(
     const checkOutFmt = new Date(updated.checkOut).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" });
 
     if (status === "confirmed") {
-      // Notify guest
       await createNotification({
         userId:   updated.user._id,
         type:     "booking_confirmed",
@@ -91,17 +122,16 @@ export async function PATCH(
         refModel: "Booking",
       });
 
-      // Notify admins
-      await notifyAdmins({
-        type:    "booking_confirmed",
+      const staffPayload = {
+        type:    "booking_confirmed" as const,
         title:   "Booking Confirmed ✅",
         message: `${guestName}'s booking for ${roomName} from ${checkInFmt} to ${checkOutFmt} has been confirmed.`,
-        link:    "/admin/bookings",
         refId:   updated._id,
-      });
+      };
+      await notifyAdmins({ ...staffPayload, link: "/admin/bookings" });
+      await notifyStaff({ ...staffPayload, link: "/staff/bookings" });
 
     } else if (status === "cancelled") {
-      // Notify guest
       await createNotification({
         userId:   updated.user._id,
         type:     "booking_cancelled",
@@ -112,14 +142,14 @@ export async function PATCH(
         refModel: "Booking",
       });
 
-      // Notify admins
-      await notifyAdmins({
-        type:    "booking_cancelled",
+      const staffPayload = {
+        type:    "booking_cancelled" as const,
         title:   "Booking Cancelled ❌",
         message: `${guestName}'s booking for ${roomName} from ${checkInFmt} to ${checkOutFmt} has been cancelled.`,
-        link:    "/admin/bookings",
         refId:   updated._id,
-      });
+      };
+      await notifyAdmins({ ...staffPayload, link: "/admin/bookings" });
+      await notifyStaff({ ...staffPayload, link: "/staff/bookings" });
     }
 
     return NextResponse.json({
