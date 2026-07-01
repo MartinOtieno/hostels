@@ -123,11 +123,11 @@ export default function AdminOverviewPage() {
         const viewingList = viewings.success ? viewings.data : [];
 
         setStats({
-          totalRooms:      roomList.length,
-          availableRooms:  roomList.filter((r: any) => r.status === "available").length,
-          totalBookings:   bookingList.length,
+          totalRooms: roomList.length,
+          availableRooms: roomList.filter((r: any) => r.isAvailable).length,
+          totalBookings: bookingList.length,
           pendingBookings: bookingList.filter((b: any) => b.status === "pending").length,
-          totalUsers:      userList.length,
+          totalUsers: userList.length,
           pendingViewings: viewingList.filter((v: any) => v.status === "pending").length,
         });
 
@@ -316,7 +316,7 @@ export default function AdminOverviewPage() {
         <h2 className="font-semibold text-slate-800 mb-4">Quick actions</h2>
         <div className="flex flex-wrap gap-3">
           {[
-            { label: "Add a room",         href: "/admin/rooms/new",            color: "bg-blue-600 hover:bg-blue-700 text-white" },
+            { label: "View Rooms",         href: "/admin/rooms",            color: "bg-blue-600 hover:bg-blue-700 text-white" },
             { label: "View all bookings",  href: "/admin/bookings",             color: "bg-slate-800 hover:bg-slate-900 text-white" },
             { label: "Manage staff",       href: "/admin/staff",                color: "bg-violet-600 hover:bg-violet-700 text-white" },
             { label: "View reports",       href: "/admin/reports",              color: "bg-emerald-600 hover:bg-emerald-700 text-white" },

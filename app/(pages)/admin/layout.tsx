@@ -69,6 +69,11 @@ const Icon = {
       <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
     </svg>
   ),
+  Contacts: () => (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+    </svg>
+  ),
   Profile: () => (
     <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <circle cx="12" cy="8" r="4" /><path d="M4 20v-1a8 8 0 0116 0v1" />
@@ -156,6 +161,12 @@ const NAV_SECTIONS = [
         allowedRoles: ["admin"] as StaffRole[],
       },
       {
+        label: "Contacts",
+        href: "/admin/contacts",
+        icon: <Icon.Contacts />,
+        allowedRoles: ["admin", "property_manager", "receptionist"] as StaffRole[],
+      },
+      {
         label: "Notifications",
         href: "/admin/notifications",
         icon: <Icon.Notifications />,
@@ -192,6 +203,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     bookings:      0,
     viewings:      0,
     notifications: 0,
+    contacts:      0,
   });
 
   useEffect(() => { setMounted(true); }, []);
@@ -209,21 +221,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [mounted, status, session, router, userRole]);
 
-  // ── Fetch all badge counts including unread notifications ─────────────────
+  // ── Fetch all badge counts ────────────────────────────────────────────────
   useEffect(() => {
     if (status !== "authenticated" || !userId) return;
 
     const fetchCounts = async () => {
       try {
-        const [bookingsRes, viewingsRes, notifRes] = await Promise.all([
+        const [bookingsRes, viewingsRes, notifRes, contactsRes] = await Promise.all([
           fetch("/api/bookings"),
           fetch("/api/viewing-request"),
           fetch(`/api/notifications?userId=${userId}&unreadOnly=true`),
+          fetch("/api/contact?status=unread"),
         ]);
 
-        const bookings = await bookingsRes.json();
-        const viewings = await viewingsRes.json();
-        const notifs   = await notifRes.json();
+        const bookings  = await bookingsRes.json();
+        const viewings  = await viewingsRes.json();
+        const notifs    = await notifRes.json();
+        const contacts  = await contactsRes.json();
 
         setPendingCounts({
           bookings: bookings.success
@@ -233,6 +247,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             ? viewings.data.filter((v: { status: string }) => v.status === "pending").length
             : 0,
           notifications: notifs.success ? notifs.unreadCount : 0,
+          contacts: contacts.success ? contacts.messages.length : 0,
         });
       } catch { /* silent */ }
     };
@@ -244,9 +259,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Badge map keyed by href
   const badges: Record<string, number> = {
-    "/admin/bookings":       pendingCounts.bookings,
+    "/admin/bookings":         pendingCounts.bookings,
     "/admin/viewing-requests": pendingCounts.viewings,
-    "/admin/notifications":  pendingCounts.notifications,
+    "/admin/notifications":    pendingCounts.notifications,
+    "/admin/contacts":         pendingCounts.contacts,
   };
 
   if (!mounted || status === "loading") {
@@ -384,10 +400,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <span className="font-semibold text-slate-800">
             Jluv<span className="text-blue-600">Stays</span>
           </span>
-          {/* Mobile total badge */}
-          {(pendingCounts.bookings + pendingCounts.viewings + pendingCounts.notifications) > 0 && (
+          {(pendingCounts.bookings + pendingCounts.viewings + pendingCounts.notifications + pendingCounts.contacts) > 0 && (
             <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-              {pendingCounts.bookings + pendingCounts.viewings + pendingCounts.notifications}
+              {pendingCounts.bookings + pendingCounts.viewings + pendingCounts.notifications + pendingCounts.contacts}
             </span>
           )}
         </header>
