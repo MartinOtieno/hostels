@@ -206,6 +206,9 @@ export default function LoginPage() {
               Create an account
             </Link>
           </div>
+            <Link href="/" className="text-xs text-blue-400 hover:text-blue-300 transition">
+              Back Home
+            </Link>
 
           <p className="text-center text-xs text-slate-600 mt-6">
             © {new Date().getFullYear()} Room Booking. All rights reserved.
