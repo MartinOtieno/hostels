@@ -197,10 +197,10 @@ export default function Navbar() {
 
           {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center gap-8">
-            <Link href="/"        className="text-gray-600 hover:text-blue-600 font-medium transition">Home</Link>
-            <Link href="/rooms"   className="text-gray-600 hover:text-blue-600 font-medium transition">Rooms</Link>
-            <Link href="/about"   className="text-gray-600 hover:text-blue-600 font-medium transition">About</Link>
-            <Link href="/contact" className="text-gray-600 hover:text-blue-600 font-medium transition">Contact</Link>
+            <Link href="/"        className="text-gray-600 hover:text-[#D2CFCD] font-medium transition">Home</Link>
+            <Link href="/rooms"   className="text-gray-600 hover:text-[#D2CFCD] font-medium transition">Rooms</Link>
+            <Link href="/about"   className="text-gray-600 hover:text-[#D2CFCD] font-medium transition">About</Link>
+            <Link href="/contact" className="text-gray-600 hover:text-[#D2CFCD] font-medium transition">Contact</Link>
           </div>
 
           {/* Desktop Auth */}
@@ -212,7 +212,7 @@ export default function Navbar() {
                 <div className="relative" ref={bellRef}>
                   <button
                     onClick={() => { setBellOpen(v => !v); setDropdownOpen(false); }}
-                    className="relative w-9 h-9 flex items-center justify-center rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition"
+                    className="relative w-9 h-9 flex items-center justify-center rounded-full text-gray-500 hover:text-[#D2CFCD] hover:bg-[#D2CFCD]/10 transition"
                     aria-label="Notifications"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -240,7 +240,7 @@ export default function Navbar() {
                         {unreadCount > 0 && (
                           <button
                             onClick={markAllRead}
-                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            className="text-xs text-[#D2CFCD] hover:opacity-80 font-medium"
                           >
                             Mark all read
                           </button>
@@ -251,7 +251,7 @@ export default function Navbar() {
                       <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
                         {notifLoading ? (
                           <div className="flex justify-center py-8">
-                            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                            <div className="w-5 h-5 border-2 border-[#D2CFCD] border-t-transparent rounded-full animate-spin" />
                           </div>
                         ) : notifications.length === 0 ? (
                           <div className="py-10 text-center">
@@ -264,7 +264,7 @@ export default function Navbar() {
                               key={n._id}
                               onClick={() => markRead(n)}
                               className={`flex gap-3 px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition group relative ${
-                                !n.isRead ? "bg-blue-50/50" : ""
+                                !n.isRead ? "bg-[#D2CFCD]/10" : ""
                               }`}
                             >
                               {/* Icon */}
@@ -287,7 +287,7 @@ export default function Navbar() {
 
                               {/* Unread dot */}
                               {!n.isRead && (
-                                <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />
+                                <div className="w-2 h-2 rounded-full bg-[#D2CFCD] flex-shrink-0 mt-1.5" />
                               )}
 
                               {/* Delete button */}
@@ -311,7 +311,7 @@ export default function Navbar() {
                           <Link
                             href="/notifications"
                             onClick={() => setBellOpen(false)}
-                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            className="text-xs text-[#D2CFCD] hover:opacity-80 font-medium"
                           >
                             View all notifications →
                           </Link>
@@ -325,12 +325,12 @@ export default function Navbar() {
                 <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => { setDropdownOpen(v => !v); setBellOpen(false); }}
-                    className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-full border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all duration-150 bg-white"
+                    className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-full border border-gray-200 hover:border-[#D2CFCD] hover:shadow-sm transition-all duration-150 bg-white"
                   >
                     {photo ? (
-                      <Image src={photo} alt={name} width={32} height={32} className="w-8 h-8 rounded-full object-cover ring-2 ring-blue-100" />
+                      <Image src={photo} alt={name} width={32} height={32} className="w-8 h-8 rounded-full object-cover ring-2 ring-[#D2CFCD]/30" />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-blue-100">
+                      <div className="w-8 h-8 rounded-full bg-[#D2CFCD] flex items-center justify-center text-white text-sm font-bold ring-2 ring-[#D2CFCD]/30">
                         {name.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -353,7 +353,7 @@ export default function Navbar() {
                         {photo ? (
                           <Image src={photo} alt={name} width={36} height={36} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
                         ) : (
-                          <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                          <div className="w-9 h-9 rounded-full bg-[#D2CFCD] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                             {name.charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -370,7 +370,7 @@ export default function Navbar() {
                             key={item.href}
                             href={item.href}
                             onClick={() => setDropdownOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#D2CFCD]/10 hover:text-[#D2CFCD] transition-colors"
                           >
                             <span className="text-gray-400">{item.icon}</span>
                             {item.label}
@@ -396,8 +396,8 @@ export default function Navbar() {
               </div>
             ) : (
               <>
-                <Link href="/login"    className="px-4 py-2 text-sm text-gray-700 hover:text-blue-600 font-medium transition">Sign In</Link>
-                <Link href="/register" className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition">My Account</Link>
+                <Link href="/login"    className="px-4 py-2 text-sm text-gray-700 hover:text-[#D2CFCD] font-medium transition">Sign In</Link>
+                <Link href="/register" className="px-4 py-2 text-sm bg-[#D2CFCD] hover:opacity-90 text-white font-medium rounded-lg transition">My Account</Link>
               </>
             )}
           </div>
@@ -423,10 +423,10 @@ export default function Navbar() {
         {/* ── Mobile Menu ── */}
         {menuOpen && (
           <div className="md:hidden py-4 border-t border-gray-100 space-y-1">
-            <Link href="/"        onClick={() => setMenuOpen(false)} className="block text-gray-600 hover:text-blue-600 py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition">Home</Link>
-            <Link href="/rooms"   onClick={() => setMenuOpen(false)} className="block text-gray-600 hover:text-blue-600 py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition">Rooms</Link>
-            <Link href="/about"   onClick={() => setMenuOpen(false)} className="block text-gray-600 hover:text-blue-600 py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition">About</Link>
-            <Link href="/contact" onClick={() => setMenuOpen(false)} className="block text-gray-600 hover:text-blue-600 py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition">Contact</Link>
+            <Link href="/"        onClick={() => setMenuOpen(false)} className="block text-gray-600 hover:text-[#D2CFCD] py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition">Home</Link>
+            <Link href="/rooms"   onClick={() => setMenuOpen(false)} className="block text-gray-600 hover:text-[#D2CFCD] py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition">Rooms</Link>
+            <Link href="/about"   onClick={() => setMenuOpen(false)} className="block text-gray-600 hover:text-[#D2CFCD] py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition">About</Link>
+            <Link href="/contact" onClick={() => setMenuOpen(false)} className="block text-gray-600 hover:text-[#D2CFCD] py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition">Contact</Link>
 
             {session ? (
               <>
@@ -435,7 +435,7 @@ export default function Navbar() {
                   {photo ? (
                     <Image src={photo} alt={name} width={40} height={40} className="w-10 h-10 rounded-full object-cover" />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
+                    <div className="w-10 h-10 rounded-full bg-[#D2CFCD] flex items-center justify-center text-white font-bold">
                       {name.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -460,7 +460,7 @@ export default function Navbar() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-3 text-gray-600 hover:text-blue-600 py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition"
+                    className="flex items-center gap-3 text-gray-600 hover:text-[#D2CFCD] py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition"
                   >
                     <span className="text-gray-400">{item.icon}</span>
                     {item.label}
@@ -470,7 +470,7 @@ export default function Navbar() {
                 <Link
                   href="/notifications"
                   onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 text-gray-600 hover:text-blue-600 py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition"
+                  className="flex items-center gap-3 text-gray-600 hover:text-[#D2CFCD] py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition"
                 >
                   <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
@@ -495,8 +495,8 @@ export default function Navbar() {
               </>
             ) : (
               <div className="pt-2 border-t border-gray-100 space-y-2">
-                <Link href="/login"    onClick={() => setMenuOpen(false)} className="block text-gray-600 hover:text-blue-600 py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition">Sign In</Link>
-                <Link href="/register" onClick={() => setMenuOpen(false)} className="block py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium text-center hover:bg-blue-700 transition">My Account</Link>
+                <Link href="/login"    onClick={() => setMenuOpen(false)} className="block text-gray-600 hover:text-[#D2CFCD] py-2.5 px-2 font-medium rounded-lg hover:bg-gray-50 transition">Sign In</Link>
+                <Link href="/register" onClick={() => setMenuOpen(false)} className="block py-2.5 px-4 bg-[#D2CFCD] text-white rounded-lg font-medium text-center hover:opacity-90 transition">My Account</Link>
               </div>
             )}
           </div>
