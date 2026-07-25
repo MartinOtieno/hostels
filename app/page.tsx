@@ -129,7 +129,7 @@ export default async function HomePage() {
           sizes="100vw"
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#7A1B0F]/80 to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-r  to-black/50" />
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
           <span className="inline-block px-4 py-1.5 bg-[#7A1B0F]/20 border border-[#7A1B0F]/30 text-[#7A1B0F] text-sm rounded-full mb-6">
             🏠 Rooms Available in Chicago
