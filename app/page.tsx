@@ -129,14 +129,14 @@ export default async function HomePage() {
           sizes="100vw"
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#D2CFCD]/80 to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#BF9000]/80 to-black/50" />
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <span className="inline-block px-4 py-1.5 bg-[#D2CFCD]/20 border border-[#D2CFCD]/30 text-[#D2CFCD] text-sm rounded-full mb-6">
+          <span className="inline-block px-4 py-1.5 bg-[#BF9000]/20 border border-[#BF9000]/30 text-[#BF9000] text-sm rounded-full mb-6">
             🏠 Rooms Available in Chicago
           </span>
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
             Find Your Perfect
-            <span className="text-[#D2CFCD]"> Room in Chicago</span>
+            <span className="text-[#BF9000]"> Room in Chicago</span>
           </h1>
           <p className="text-gray-300 text-xl mb-8 max-w-2xl mx-auto">
             Quality rooms starting from{" "}
@@ -146,7 +146,7 @@ export default async function HomePage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/rooms"
-              className="px-8 py-4 bg-[#D2CFCD] hover:opacity-90 text-white font-semibold rounded-xl text-lg transition duration-200 shadow-lg"
+              className="px-8 py-4 bg-[#BF9000] hover:opacity-90 text-white font-semibold rounded-xl text-lg transition duration-200 shadow-lg"
             >
               Browse Rooms
             </Link>
@@ -161,7 +161,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── Stats Bar from DB ── */}
-      <section className="bg-[#D2CFCD] py-8">
+      <section className="bg-[#BF9000] py-8">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           {[
             {
@@ -213,7 +213,7 @@ export default async function HomePage() {
             </p>
             <Link
               href="/rooms"
-              className="inline-block mt-4 px-6 py-2.5 bg-[#D2CFCD] text-white rounded-xl hover:opacity-90 transition"
+              className="inline-block mt-4 px-6 py-2.5 bg-[#BF9000] text-white rounded-xl hover:opacity-90 transition"
             >
               Browse All Rooms
             </Link>
@@ -235,7 +235,7 @@ export default async function HomePage() {
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover group-hover:scale-105 transition duration-500"
                   />
-                  <span className="absolute top-3 left-3 px-3 py-1 bg-[#D2CFCD] text-white text-xs font-semibold rounded-full capitalize">
+                  <span className="absolute top-3 left-3 px-3 py-1 bg-[#BF9000] text-white text-xs font-semibold rounded-full capitalize">
                     {room.type}
                   </span>
                   <span className={
@@ -250,10 +250,10 @@ export default async function HomePage() {
 
                 {/* Info */}
                 <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-900 mb-1 group-hover:text-[#D2CFCD] transition">
+                  <h3 className="text-xl font-bold text-gray-900 mb-1 group-hover:text-[#BF9000] transition">
                     {room.name}
                   </h3>
-                  <p className="text-[#D2CFCD] font-semibold text-lg mb-4">
+                  <p className="text-[#BF9000] font-semibold text-lg mb-4">
                     Ksh {room.pricePerNight.toLocaleString()}
                     <span className="text-gray-400 text-sm font-normal">
                       /month
@@ -267,14 +267,14 @@ export default async function HomePage() {
                           key={amenity}
                           className="flex items-center gap-2 text-sm text-gray-600"
                         >
-                          <span className="text-[#D2CFCD]">✓</span>
+                          <span className="text-[#BF9000]">✓</span>
                           {amenity}
                         </li>
                       ))}
                     </ul>
                   )}
 
-                  <div className="block text-center py-2.5 px-4 bg-[#D2CFCD] group-hover:opacity-90 text-white font-medium rounded-xl transition duration-200">
+                  <div className="block text-center py-2.5 px-4 bg-[#BF9000] group-hover:opacity-90 text-white font-medium rounded-xl transition duration-200">
                     View Details
                   </div>
                 </div>
@@ -286,7 +286,7 @@ export default async function HomePage() {
         <div className="text-center mt-12">
           <Link
             href="/rooms"
-            className="inline-block px-8 py-3 border-2 border-[#D2CFCD] text-[#D2CFCD] hover:bg-[#D2CFCD] hover:text-white font-semibold rounded-xl transition duration-200"
+            className="inline-block px-8 py-3 border-2 border-[#BF9000] text-[#BF9000] hover:bg-[#BF9000] hover:text-white font-semibold rounded-xl transition duration-200"
           >
             View All Rooms
           </Link>
@@ -308,10 +308,10 @@ export default async function HomePage() {
             {steps.map((item, index) => (
               <div key={item.step} className="relative text-center">
                 {index < steps.length - 1 && (
-                  <div className="hidden md:block absolute top-8 left-1/2 w-full h-0.5 bg-[#D2CFCD]/40 z-0" />
+                  <div className="hidden md:block absolute top-8 left-1/2 w-full h-0.5 bg-[#BF9000]/40 z-0" />
                 )}
                 <div className="relative z-10">
-                  <div className="w-16 h-16 bg-[#D2CFCD] text-white rounded-2xl flex items-center justify-center text-xl font-bold mx-auto mb-6 shadow-lg">
+                  <div className="w-16 h-16 bg-[#BF9000] text-white rounded-2xl flex items-center justify-center text-xl font-bold mx-auto mb-6 shadow-lg">
                     {item.step}
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-3">
@@ -328,7 +328,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── CTA ── */}
-      <section className="py-20 px-4 bg-[#D2CFCD]">
+      <section className="py-20 px-4 bg-[#BF9000]">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-4xl font-bold text-white mb-4">
             Ready to Find Your Room?
@@ -340,13 +340,13 @@ export default async function HomePage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/rooms"
-              className="px-8 py-4 bg-white text-[#D2CFCD] hover:bg-gray-100 font-semibold rounded-xl text-lg transition duration-200"
+              className="px-8 py-4 bg-white text-[#BF9000] hover:bg-gray-100 font-semibold rounded-xl text-lg transition duration-200"
             >
               Browse Rooms
             </Link>
             <Link
               href="/register"
-              className="px-8 py-4 bg-[#D2CFCD] hover:opacity-80 border border-white/40 text-white font-semibold rounded-xl text-lg transition duration-200"
+              className="px-8 py-4 bg-[#BF9000] hover:opacity-80 border border-white/40 text-white font-semibold rounded-xl text-lg transition duration-200"
             >
               Create Account
             </Link>
